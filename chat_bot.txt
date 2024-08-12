@@ -1,0 +1,114 @@
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
+
+
+import numpy as np
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Dropout
+from keras.optimizers import SGD
+
+import random
+import nltk
+from nltk.stem import WordNetLemmatizer
+lemmatizer = WordNetLemmatizer()
+import pickle
+import sklearn
+from sklearn.utils import shuffle
+import json
+
+# Error handling technique when opening files
+try:
+    with open(r"C:\Users\ERC\Downloads\intents.json") as json_file:
+        intents = json.load(json_file)
+        print("File successfully opened and loaded.")
+    # Further operations with 'intents' data can be placed here
+except IOError:
+    print("Error: Unable to open file or file does not exist.")
+except json.JSONDecodeError:
+    print("Error: JSON decoding error. File may not be valid JSON.")
+
+
+# Preprocessing the datasets. Tokenization technique is used to separate into words of each patterns.
+
+words = []
+documents = []
+classes = []
+
+for intent in intents['intents']:
+    for pattern in intent['patterns']:
+        # tokenize each word of patterns
+      word = nltk.word_tokenize(pattern)
+      words.extend(word)
+      documents.append((word, intent['tag']))
+      if intent['tag'] not in classes:
+          classes.append(intent['tag'])
+print(documents)
+
+# Training the model we need to create a numerical input so that our model understands. The numerical values are based on 0s and 1s
+# if the words exists in our base words we will assign our numerical value to 1 and if not to 0
+
+training = []
+training_output_row = []
+
+output_empty_set = [0] * len(classes)
+
+# we will set a list where we will include all of our numerical input values
+# Then we will perform lemmatization that includes setting each words to their base root. So we will go through each of the words in documents and persform lemmatization
+# We have already appended our words and their respective tag
+
+for doc in documents:
+    col = []
+    wordy = doc[0]
+
+
+# Now wordy has each of the words  tha are found in documents so now we will perform lemmatization so that we find the base root of the word
+
+    wordy = [lemmatizer.lemmatize(word.lower()) for word in wordy]
+
+    for w in words:
+        if w in wordy:
+            col.append(1)
+        else:
+            col.append(0)
+
+# the next step is to be able to set a new variable passing our output_empty_set into a list
+# we also want to set the elements corresponding to the doc[1] found in classes to 1
+
+    output_row = list(output_empty_set)
+    output_row[classes.index(doc[1])] = 1 # serves the purpose of creating a one-hot encoded vector for the output label.
+    training.append(col)
+    training_output_row.append(output_row)
+
+
+training = np.array(training)
+training_output_row = np.array(training_output_row)
+
+#random_state ensures that the shuffling of training and training_output_row is the same each time your code is run, promoting reproducibility and consistency in your machine learning experiments
+train_x, train_y = shuffle(training, training_output_row, random_state=0)
+
+
+
+
+print("Training data has been created")
+
+
+# Model that will be created is a neural network that consists of three dense layers.
+#Dropout layers are introduced to reduce overfitting. SGD is used as an optimizer with a learning rate of 0.01
+
+model = Sequential()
+model.add(Dense(128, input_shape=(len(train_x[0]),), activation='relu'))
+model.Dropout = 0.5
+model.add(Dense(64,activation = 'relu'))
+model.add(Dropout(0.5))
+model.add(Dense(len(train_y[0]),activation = 'softmax'))
+
+# After building our model then we have to compile it
+sgd = SGD(learning_rate=0.01, momentum=0.9, nesterov=True)
+mod = model.compile(loss= 'categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+model.save('chatbot_model.h5', mod)
+
+# once our model is compiled we start to train our model using model.fit
+model.fit(np.array(train_x), np.array(train_y), epochs=200, batch_size=5, verbose=1)
+
+print("model has been trained")
